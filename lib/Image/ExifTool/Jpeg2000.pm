@@ -16,7 +16,7 @@ use strict;
 use vars qw($VERSION);
 use Image::ExifTool qw(:DataAccess :Utils);
 
-$VERSION = '1.32';
+$VERSION = '1.35';
 
 sub ProcessJpeg2000Box($$$);
 sub ProcessJUMD($$$);
@@ -33,6 +33,9 @@ my %resolutionUnit = (
      5 => '0.01 mm',
      6 => 'um',
 );
+
+# top-level boxes containing image data
+my %isImageData = ( jp2c=>1, jbrd=>1, jxlp=>1, jxlc=>1 );
 
 # map of where information is written in JPEG2000 image
 my %jp2Map = (
@@ -59,7 +62,7 @@ my %jp2Map = (
 # map of where information is written in a JXL image
 my %jxlMap = (
     IFD0         => 'Exif',
-    XMP          => 'XML',
+    XMP          => 'xml ',
    'Exif'        => 'JP2',
     IFD1         => 'IFD0',
     EXIF         => 'IFD0', # to write EXIF as a block
@@ -127,7 +130,10 @@ my %j2cMarker = (
     NOTES => q{
         The tags below are found in JPEG 2000 images and the JUMBF metadata in JPEG
         images, but not all of these are extracted.  Note that ExifTool currently
-        writes only EXIF, IPTC and XMP tags in Jpeg2000 images.
+        writes only EXIF, IPTC and XMP tags in Jpeg2000 images, and EXIF and XMP in
+        JXL images.  ExifTool will read/write Brotli-compressed EXIF and XMP in JXL
+        images, but the API Compress option must be set to create new EXIF and XMP
+        in compressed format.
     },
 #
 # NOTE: ONLY TAGS WITH "Format" DEFINED ARE EXTRACTED!
@@ -259,7 +265,7 @@ my %j2cMarker = (
     uuid => [
         {
             Name => 'UUID-EXIF',
-            # (this is the EXIF that we create)
+            # (this is the EXIF that we create in JP2)
             Condition => '$$valPt=~/^JpgTiffExif->JP2(?!Exif\0\0)/',
             SubDirectory => {
                 TagTable => 'Image::ExifTool::Exif::Main',
@@ -295,7 +301,7 @@ my %j2cMarker = (
         },
         {
             Name => 'UUID-IPTC',
-            # (this is the IPTC that we create)
+            # (this is the IPTC that we create in JP2)
             Condition => '$$valPt=~/^\x33\xc7\xa4\xd2\xb8\x1d\x47\x23\xa0\xba\xf1\xa3\xe0\x97\xad\x38/',
             SubDirectory => {
                 TagTable => 'Image::ExifTool::IPTC::Main',
@@ -418,6 +424,12 @@ my %j2cMarker = (
         Binary => 1,
         JUMBF_Suffix => 'Data', # (used when tag is renamed according to JUMDLabel)
     },
+    c2sh => { # used in JUMBF
+        Name => 'C2PASaltHash',
+        Format => 'undef',
+        ValueConv => 'unpack("H*",$val)',
+        JUMBF_Suffix => 'Salt', # (used when tag is renamed according to JUMDLabel)
+    },
 #
 # stuff seen in JPEG XL images:
 #
@@ -431,6 +443,15 @@ my %j2cMarker = (
         },
         RawConv => 'Image::ExifTool::Jpeg2000::ProcessJXLCodestream($self,\$val); undef',
     },
+    jxlp => {
+        Name => 'PartialJXLCodestream',
+        Format => 'undef',
+        Notes => q{
+            Partial codestreams in JPEG XL image.  Currently processed only to determine
+            ImageSize
+        },
+        RawConv => 'Image::ExifTool::Jpeg2000::ProcessJXLCodestream($self,\$val); undef',
+    },
     Exif => {
         Name => 'EXIF',
         SubDirectory => {
@@ -438,9 +459,41 @@ my %j2cMarker = (
             ProcessProc => \&Image::ExifTool::ProcessTIFF,
             WriteProc => \&Image::ExifTool::WriteTIFF,
             DirName => 'EXIF',
-            Start => '$valuePtr + 4',
+            Start => '$valuePtr + 4 + (length($$dataPt)-$valuePtr > 4 ? unpack("N", $$dataPt) : 0)',
         },
     },
+    hrgm => {
+        Name => 'GainMapImage',
+        Groups => { 2 => 'Preview' },
+        Format => 'undef',
+        Binary => 1,
+    },
+    brob => [{ # Brotli-encoded metadata (see https://libjxl.readthedocs.io/en/latest/api_decoder.html)
+        Name => 'BrotliXMP',
+        Condition => '$$valPt =~ /^xml /i',
+        SubDirectory => {
+            TagTable => 'Image::ExifTool::XMP::Main',
+            ProcessProc => \&ProcessBrotli,
+            WriteProc => \&ProcessBrotli,
+            # (don't set DirName to 'XMP' because this would enable a block write of raw XMP)
+        },
+    },{
+        Name => 'BrotliEXIF',
+        Condition => '$$valPt =~ /^exif/i',
+        SubDirectory => {
+            TagTable => 'Image::ExifTool::Exif::Main',
+            ProcessProc => \&ProcessBrotli,
+            WriteProc => \&ProcessBrotli,
+            # (don't set DirName to 'EXIF' because this would enable a block write of raw EXIF)
+        },
+    },{
+        Name => 'BrotliJUMB',
+        Condition => '$$valPt =~ /^jumb/i',
+        SubDirectory => {
+            TagTable => 'Image::ExifTool::Jpeg2000::Main',
+            ProcessProc => \&ProcessBrotli,
+        },
+    }],
 );
 
 %Image::ExifTool::Jpeg2000::ImageHeader = (
@@ -565,6 +618,9 @@ my %j2cMarker = (
     GROUPS => { 2 => 'Image' },
     FORMAT => 'int8s',
     WRITABLE => 1,
+    # (Note: 'colr' is not a real group, but is used as a hack to write the
+    #  necessary colr box.  This hack necessitated another hack in TagInfoXML.pm
+    #  to avoid reporting this fake group in the XML output)
     WRITE_GROUP => 'colr',
     DATAMEMBER => [ 0 ],
     IS_SUBDIR => [ 3 ],
@@ -767,7 +823,22 @@ sub ProcessJUMD($$$)
         $et->HandleTag($tagTablePtr, 'sig', substr($$dataPt, $pos, 32));
         $pos += 32;
     }
-    $pos == $end or $et->Warn('Extra data in JUMD box'." $pos $end", 1);
+    my $more = $end - $pos;
+    if ($more) {
+        # (may find c2sh box hiding after JUMD record)
+        if ($more >= 8) {
+            my %dirInfo = (
+                DataPt   => $dataPt,
+                DataLen  => $$dirInfo{DataLen},
+                DirStart => $pos,
+                DirLen   => $more,
+                DirName  => 'JUMDPrivate',
+            );
+            $et->ProcessDirectory(\%dirInfo, GetTagTable('Image::ExifTool::Jpeg2000::Main'));
+        } else {
+            $et->Warn("Extra data in JUMD box $more bytes)", 1);
+        }
+    }
     return 1;
 }
 
@@ -803,8 +874,8 @@ sub CreateNewBoxes($$)
     # add UUID boxes (and/or JXL Exif/XML boxes)
     foreach $dirName (sort keys %$addDirs) {
         # handle JPEG XL XMP and EXIF
-        if ($dirName eq 'XML' or $dirName eq 'Exif') {
-            my ($tag, $dir) = $dirName eq 'XML' ? ('xml ', 'XMP') : ('Exif', 'EXIF');
+        if ($dirName eq 'xml ' or $dirName eq 'Exif') {
+            my ($tag, $dir) = $dirName eq 'xml ' ? ('xml ', 'XMP') : ('Exif', 'EXIF');
             my $tagInfo = $Image::ExifTool::Jpeg2000::Main{$tag};
             $tagInfo = $$tagInfo[1] if ref $tagInfo eq 'ARRAY'; # (hack for stupid JXL XMP)
             my $subdir = $$tagInfo{SubDirectory};
@@ -812,12 +883,31 @@ sub CreateNewBoxes($$)
             $tagTable = GetTagTable('Image::ExifTool::XMP::Main') if $dir eq 'XMP';
             my %dirInfo = (
                 DirName => $dir,
-                Parent => 'JP2',
+                Parent => $tag,
             );
+            my $compress = $et->Options('Compress');
+            $dirInfo{Compact} = 1 if $$et{IsJXL} and $compress;
             my $newdir = $et->WriteDirectory(\%dirInfo, $tagTable, $$subdir{WriteProc});
             if (defined $newdir and length $newdir) {
                 # not sure why, but EXIF box is padded with leading 0's in my sample
                 my $pad = $dirName eq 'Exif' ? "\0\0\0\0" : '';
+                if ($$et{IsJXL} and $compress) {
+                    # create as Brotli-compressed metadata
+                    if (eval { require IO::Compress::Brotli }) {
+                        my $compressed;
+                        eval { $compressed = IO::Compress::Brotli::bro($pad . $newdir) };
+                        if ($@ or not $compressed) {
+                            $et->Warn("Error encoding $dirName brob box");
+                        } else {
+                            $et->VPrint(0, "  Writing Brotli-compressed $dir\n");
+                            $newdir = $compressed;
+                            $pad = $tag;
+                            $tag = 'brob';
+                        }
+                    } else {
+                        $et->WarnOnce('Install IO::Compress::Brotli to create Brotli-compressed metadata');
+                    }
+                }
                 my $boxhdr = pack('N', length($newdir) + length($pad) + 8) . $tag;
                 Write($outfile, $boxhdr, $pad, $newdir) or return 0;
                 next;
@@ -899,14 +989,14 @@ sub ProcessJpeg2000Box($$$)
     my ($et, $dirInfo, $tagTablePtr) = @_;
     my $dataPt = $$dirInfo{DataPt};
     my $dataLen = $$dirInfo{DataLen};
-    my $dataPos = $$dirInfo{DataPos};
+    my $dataPos = $$dirInfo{DataPos} || 0;
     my $dirLen = $$dirInfo{DirLen} || 0;
     my $dirStart = $$dirInfo{DirStart} || 0;
     my $base = $$dirInfo{Base} || 0;
     my $raf = $$dirInfo{RAF};
     my $outfile = $$dirInfo{OutFile};
     my $dirEnd = $dirStart + $dirLen;
-    my ($err, $outBuff, $verbose, $doColour);
+    my ($err, $outBuff, $verbose, $doColour, $hash);
 
     if ($outfile) {
         unless ($raf) {
@@ -924,6 +1014,8 @@ sub ProcessJpeg2000Box($$$)
         # (must not set verbose flag when writing!)
         $verbose = $$et{OPTIONS}{Verbose};
         $et->VerboseDir($$dirInfo{DirName}) if $verbose;
+        # do hash if requested, but only for top-level image data
+        $hash = $$et{ImageDataHash} if $raf;
     }
     # loop through all contained boxes
     my ($pos, $boxLen, $lastBox);
@@ -947,6 +1039,11 @@ sub ProcessJpeg2000Box($$$)
         }
         $boxLen = unpack("x$pos N",$$dataPt);   # (length includes header and data)
         $boxID = substr($$dataPt, $pos+4, 4);
+        # (ftbl box contains flst boxes with absolute file offsets, not currently handled)
+        if ($outfile and $boxID eq 'ftbl') {
+            $et->Error("Can't yet handle fragmented JPX files");
+            return -1;
+        }
         # remove old colr boxes if necessary
         if ($doColour and $boxID eq 'colr') {
             if ($doColour == 1) { # did we successfully write the new colr box?
@@ -983,9 +1080,14 @@ sub ProcessJpeg2000Box($$$)
                     while ($raf->Read($buff, 65536)) {
                         Write($outfile, $buff) or $err = 1;
                     }
-                } elsif ($verbose) {
-                    my $msg = sprintf("offset 0x%.4x to end of file", $dataPos + $base + $pos);
-                    $et->VPrint(0, "$$et{INDENT}- Tag '${boxID}' ($msg)\n");
+                } else {
+                    if ($verbose) {
+                        my $msg = sprintf("offset 0x%.4x to end of file", $dataPos + $base + $pos);
+                        $et->VPrint(0, "$$et{INDENT}- Tag '${boxID}' ($msg)\n");
+                    }
+                    if ($hash and $isImageData{$boxID}) {
+                        $et->ImageDataHash($raf, undef, $boxID);
+                    }
                 }
                 last;   # (ignore the rest of the file when reading)
             }
@@ -1002,6 +1104,8 @@ sub ProcessJpeg2000Box($$$)
                     Write($outfile, $$dataPt) or $err = 1;
                     $raf->Read($buff,$boxLen) == $boxLen or $err = '', last;
                     Write($outfile, $buff) or $err = 1;
+                } elsif ($hash and $isImageData{$boxID}) {
+                    $et->ImageDataHash($raf, $boxLen, $boxID);
                 } else {
                     $raf->Seek($boxLen, 1) or $err = 'Seek error', last;
                 }
@@ -1014,6 +1118,10 @@ sub ProcessJpeg2000Box($$$)
             # read the box data
             $dataPos = $raf->Tell() - $base;
             $raf->Read($buff,$boxLen) == $boxLen or $err = '', last;
+            if ($hash and $isImageData{$boxID}) {
+                $hash->add($buff);
+                $et->VPrint(0, "$$et{INDENT}(ImageDataHash: $boxLen bytes of $boxID data)\n");
+            }
             $valuePtr = 0;
             $dataLen = $boxLen;
         } elsif ($pos + $boxLen > $dirEnd) {
@@ -1072,11 +1180,16 @@ sub ProcessJpeg2000Box($$$)
         if ($$tagInfo{SubDirectory}) {
             my $subdir = $$tagInfo{SubDirectory};
             my $subdirStart = $valuePtr;
+            my $subdirLen = $boxLen;
             if (defined $$subdir{Start}) {
-                #### eval Start ($valuePtr)
+                #### eval Start ($valuePtr, $dataPt)
                 $subdirStart = eval($$subdir{Start});
+                $subdirLen -= $subdirStart - $valuePtr;
+                if ($subdirLen < 0) {
+                    $subdirStart = $valuePtr;
+                    $subdirLen = 0;
+                }
             }
-            my $subdirLen = $boxLen - ($subdirStart - $valuePtr);
             my %subdirInfo = (
                 Parent => 'JP2',
                 DataPt => $dataPt,
@@ -1093,17 +1206,65 @@ sub ProcessJpeg2000Box($$$)
             $subdirInfo{DirName} =~ s/^UUID-//;
             my $subTable = GetTagTable($$subdir{TagTable}) || $tagTablePtr;
             if ($outfile) {
-                # remove this directory from our create list
-                delete $$et{AddJp2Dirs}{$$tagInfo{Name}};
+                # (special case for brob box, which may be EXIF or XMP)
+                my $fakeID = $boxID;
+                if ($boxID eq 'brob') {
+                    # I have seen 'brob' ID's with funny cases, so standardize these
+                    $fakeID = 'xml ' if $$dataPt =~ /^xml /i;
+                    $fakeID = 'Exif' if $$dataPt =~ /^Exif/i;
+                }
                 my $newdir;
                 # only edit writable UUID, Exif and jp2h boxes
-                if ($uuid or $boxID eq 'Exif' or ($boxID eq 'xml ' and $$et{IsJXL}) or
+                if ($uuid or $fakeID eq 'Exif' or ($fakeID eq 'xml ' and $$et{IsJXL}) or
                     ($boxID eq 'jp2h' and $$et{EDIT_DIRS}{jp2h}))
                 {
+                    my $compress = $et->Options('Compress');
+                    $subdirInfo{Parent} = $fakeID;
+                    $subdirInfo{Compact} = 1 if $compress and $$et{IsJXL};
                     $newdir = $et->WriteDirectory(\%subdirInfo, $subTable, $$subdir{WriteProc});
                     next if defined $newdir and not length $newdir; # next if deleting the box
+                    # compress JXL EXIF or XMP metadata if requested
+                    if (defined $newdir and $$et{IsJXL} and defined $compress and
+                        ($fakeID eq 'Exif' or $fakeID eq 'xml '))
+                    {
+                        if ($compress and $boxID ne 'brob') {
+                            # rewrite as a Brotli-compressed 'brob' box
+                            if (eval { require IO::Compress::Brotli }) {
+                                my $pad = $boxID eq 'Exif' ? "\0\0\0\0" : '';
+                                my $compressed;
+                                eval { $compressed = IO::Compress::Brotli::bro($pad . $newdir) };
+                                if ($@ or not $compressed) {
+                                    $et->Warn("Error encoding $boxID brob box");
+                                } else {
+                                    $et->VPrint(0, "  Writing Brotli-compressed $boxID\n");
+                                    $newdir = $boxID . $compressed;
+                                    $boxID = 'brob';
+                                    $subdirStart = $valuePtr = 0;
+                                    ++$$et{CHANGED};
+                                }
+                            } else {
+                                $et->WarnOnce('Install IO::Compress::Brotli to write Brotli-compressed metadata');
+                            }
+                        } elsif (not $compress and $boxID eq 'brob') {
+                            # (in this case, ProcessBrotli has returned uncompressed data,
+                            #  so change to the uncompressed 'xml ' or 'Exif' box type)
+                            $et->VPrint(0, "  Writing uncompressed $fakeID\n");
+                            $boxID = $fakeID;
+                            $subdirStart = $valuePtr = 0;
+                            ++$$et{CHANGED};
+                        }
+                    }
                 } elsif (defined $uuid) {
                     $et->Warn("Not editing $$tagInfo{Name} box", 1);
+                }
+                # remove this directory from our create list
+                delete $$et{AddJp2Dirs}{$fakeID};               # (eg. 'Exif' or 'xml ')
+                if ($boxID eq 'brob') {
+                    # (can't make tag Name 'XMP' or 'Exif' for Brotli-compressed tags because it
+                    #  would break the logic in WriteDirectory(), so we do a lookup here instead)
+                    delete $$et{AddJp2Dirs}{{'xml '=>'XMP','Exif'=>'EXIF'}->{$fakeID}};
+                } else {
+                    delete $$et{AddJp2Dirs}{$$tagInfo{Name}};   # (eg. 'EXIF' or 'XMP')
                 }
                 # use old box data if not changed
                 defined $newdir or $newdir = substr($$dataPt, $subdirStart, $subdirLen);
@@ -1181,18 +1342,106 @@ sub GetBits($$)
 }
 
 #------------------------------------------------------------------------------
+# Read/write Brotli-encoded metadata
+# Inputs: 0) ExifTool ref, 1) dirInfoRef, 2) tag table ref
+# Returns: 1 on success when reading, or new data when writing (undef if unchanged)
+# (ref https://libjxl.readthedocs.io/en/latest/api_decoder.html)
+sub ProcessBrotli($$$)
+{
+    my ($et, $dirInfo, $tagTablePtr) = @_;
+    my $dataPt = $$dirInfo{DataPt};
+
+    return 0 unless length($$dataPt) > 4;
+
+    my $isWriting = $$dirInfo{IsWriting};
+    my $type = substr($$dataPt, 0, 4);
+    $et->VerboseDir("Decrypted Brotli '${type}'") unless $isWriting;
+    my %knownType = ( exif => 'Exif', 'xml ' => 'xml ', jumb => 'jumb' );
+    my $stdType = $knownType{lc $type};
+    unless ($stdType) {
+        $et->Warn('Unknown Brotli box type', 1);
+        return 1;
+    }
+    if ($type ne $stdType) {
+        $et->Warn("Incorrect case for Brotli '${type}' data (should be '${stdType}')");
+        $type = $stdType;
+    }
+    if (eval { require IO::Uncompress::Brotli }) {
+        if ($isWriting and not eval { require IO::Compress::Brotli }) {
+            $et->WarnOnce('Install IO::Compress::Brotli to write Brotli-compressed metadata');
+            return undef;
+        }
+        my $compress = $et->Options('Compress');
+        my $verbose = $isWriting ? 0 : $et->Options('Verbose');
+        my $dat = substr($$dataPt, 4);
+        eval { $dat = IO::Uncompress::Brotli::unbro($dat, 100000000) };
+        $@ and $et->Warn("Error decoding $type brob box"), return 1;
+        $verbose > 2 and $et->VerboseDump(\$dat, Prefix => $$et{INDENT} . '  ');
+        my %dirInfo = ( DataPt => \$dat );
+        if ($type eq 'xml ') {
+            $dirInfo{DirName} = 'XMP'; # (necessary for block read/write)
+            require Image::ExifTool::XMP;
+            if ($isWriting) {
+                $dirInfo{Compact} = 1 if $compress;  # (no need to add padding if writing compressed)
+                $dat = $et->WriteDirectory(\%dirInfo, $tagTablePtr);
+            } else {
+                Image::ExifTool::XMP::ProcessXMP($et, \%dirInfo, $tagTablePtr);
+            }
+        } elsif ($type eq 'Exif') {
+            $dirInfo{DirName} = 'EXIF'; # (necessary for block read/write)
+            $dirInfo{DirStart} = 4 + (length($dat) > 4 ? unpack("N", $dat) : 0);
+            if ($dirInfo{DirStart} > length $dat) {
+                $et->Warn("Corrupted Brotli '${type}' data");
+            } elsif ($isWriting) {
+                $dat = $et->WriteDirectory(\%dirInfo, $tagTablePtr, \&Image::ExifTool::WriteTIFF);
+                # add back header word
+                $dat = "\0\0\0\0" . $dat if defined $dat and length $dat;
+            } else {
+                $et->ProcessTIFF(\%dirInfo, $tagTablePtr);
+            }
+        } elsif ($type eq 'jumb') {
+            return undef if $isWriting; # (can't yet write JUMBF)
+            Image::ExifTool::ProcessJUMB($et, \%dirInfo, $tagTablePtr); # (untested)
+        }
+        if ($isWriting) {
+            return undef unless defined $dat;
+            # rewrite as uncompressed if Compress option is set to 0 (or '')
+            return $dat if defined $compress and not $compress;
+            eval { $dat = IO::Compress::Brotli::bro($dat) };
+            $@ and $et->Warn("Error encoding $type brob box"), return undef;
+            $et->VPrint(0, "  Writing Brotli-compressed $type\n");
+            return $type . $dat;
+        }
+    } else {
+        $et->WarnOnce('Install IO::Uncompress::Brotli to decode Brotli-compressed metadata');
+        return undef if $isWriting;
+    }
+    return 1;
+}
+
+#------------------------------------------------------------------------------
 # Extract parameters from JPEG XL codestream [unverified!]
 # Inputs: 0) ExifTool ref, 1) codestream ref
-# Returns: 1
+# Returns: 1 on success
 sub ProcessJXLCodestream($$)
 {
     my ($et, $dataPt) = @_;
-    # add padding if necessary to avoid unpacking past end of data
-    if (length $$dataPt < 14) {
-        my $tmp = $$dataPt . ("\0" x 14);
-        $dataPt = \$tmp;
+
+    return 0 unless $$dataPt =~ /^(\0\0\0\0)?\xff\x0a/; # validate codestream
+    # ignore if already extracted (ie. subsequent jxlp boxes)
+    return 0 if $$et{VALUE}{ImageWidth};
+    # work with first 64 bytes of codestream data
+    # (and add padding if necessary to avoid unpacking past end of data)
+    my $dat;
+    if (length $$dataPt > 64) {
+        $dat = substr($$dataPt, 0, 64);
+    } elsif (length $$dataPt < 18) {
+        $dat = $$dataPt . ("\0" x 18); # (so we'll have a minimum 14 bytes to work with)
+    } else {
+        $dat = $$dataPt;
     }
-    my @a = unpack 'x2C12', $$dataPt;
+    $dat =~ s/^\0\0\0\0//;  # remove jxlp header word
+    my @a = unpack 'x2C12', $dat;
     my ($x, $y);
     my $small = GetBits(\@a, 1);
     if ($small) {
@@ -1281,7 +1530,7 @@ sub ProcessJP2($$)
 }
 
 #------------------------------------------------------------------------------
-# Read meta information from a JPEG XL image
+# Read/write meta information in a JPEG XL image
 # Inputs: 0) ExifTool object reference, 1) dirInfo reference
 # Returns: 1 on success, 0 if this wasn't a valid JPEG XL file, -1 on write error
 sub ProcessJXL($$)
@@ -1310,6 +1559,9 @@ sub ProcessJXL($$)
             $$dirInfo{RAF} = new File::RandomAccess(\$buff);
         } else {
             $et->SetFileType('JXL Codestream','image/jxl', 'jxl');
+            if ($$et{ImageDataHash} and $raf->Seek(0,0)) {
+                $et->ImageDataHash($raf, undef, 'JXL');
+            }
             return ProcessJXLCodestream($et, \$hdr);
         }
     } else {
@@ -1352,7 +1604,7 @@ files.
 
 =head1 AUTHOR
 
-Copyright 2003-2021, Phil Harvey (philharvey66 at gmail.com)
+Copyright 2003-2023, Phil Harvey (philharvey66 at gmail.com)
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

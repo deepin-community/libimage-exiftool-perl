@@ -24,7 +24,7 @@ use Image::ExifTool qw(:DataAccess :Utils);
 use Image::ExifTool::Exif;
 use Image::ExifTool::GPS;
 
-$VERSION = '1.19';
+$VERSION = '1.22';
 
 sub ProcessFLIR($$;$);
 sub ProcessFLIRText($$$);
@@ -99,7 +99,8 @@ my %float8g = ( Format => 'float', PrintConv => 'sprintf("%.8g",$val)' );
     NOTES => q{
         Information extracted from FLIR FFF images and the APP1 FLIR segment of JPEG
         images.  These tags may also be extracted from the first frame of an FLIR
-        SEQ file, or all frames if the ExtractEmbedded option is used.
+        SEQ file, or all frames if the ExtractEmbedded option is used.  Setting
+        ExtractEmbedded to 2 also the raw thermal data from all frames.
     },
     "_header" => {
         Name => 'FFFHeader',
@@ -240,7 +241,8 @@ my %float8g = ( Format => 'float', PrintConv => 'sprintf("%.8g",$val)' );
     16.1 => {
         Name => 'RawThermalImage',
         Groups => { 2 => 'Preview' },
-        RawConv => '\$$self{RawThermalImage}',
+        # make a copy in case we want to extract more of them with -ee2
+        RawConv => 'my $copy = $$self{RawThermalImage}; \$copy',
     },
 );
 
@@ -271,7 +273,7 @@ my %float8g = ( Format => 'float', PrintConv => 'sprintf("%.8g",$val)' );
     },
     16.1 => {
         Name => 'GainDeadMapImage',
-        RawConv => '\$$self{GainDeadMapImage}',
+        RawConv => 'my $copy = \$$self{GainDeadMapImage}; \$copy',
     },
 );
 
@@ -302,7 +304,7 @@ my %float8g = ( Format => 'float', PrintConv => 'sprintf("%.8g",$val)' );
     },
     16.1 => {
         Name => 'CoarseMapImage',
-        RawConv => '\$$self{CoarseMapImage}',
+        RawConv => 'my $copy = \$$self{CoarseMapImage}; \$copy',
     },
 );
 
@@ -333,7 +335,7 @@ my %float8g = ( Format => 'float', PrintConv => 'sprintf("%.8g",$val)' );
     },
     20.1 => {
         Name => 'PaintImage',
-        RawConv => '\$$self{PaintImage}',
+        RawConv => 'my $copy = \$$self{PaintImage}; \$copy',
     },
 );
 
@@ -691,7 +693,15 @@ my %float8g = ( Format => 'float', PrintConv => 'sprintf("%.8g",$val)' );
             T => 'True North',
         },
     },
-  # 0x48 - int32u: seen 0,77
+    0x48 => { #PH (NC)
+        Name => 'GPSImgDirectionRef',
+        Format => 'string[2]',
+        RawConv => 'length($val) ? $val : undef',
+        PrintConv => {
+            M => 'Magnetic North',
+            T => 'True North',
+        },
+    },
     0x4c => {
         Name => 'GPSSpeed',
         %float2f,
@@ -702,7 +712,11 @@ my %float8g = ( Format => 'float', PrintConv => 'sprintf("%.8g",$val)' );
         %float2f,
         RawConv => '$val < 0 ? undef : $val',
     },
-  # 0x54 - float: seen 0,-1
+    0x54 => {
+        Name => 'GPSImgDirection',
+        %float2f,
+        RawConv => '$val < 0 ? undef : $val',
+    },
     0x58 => {
         Name => 'GPSMapDatum',
         Format => 'string[16]',
@@ -1539,7 +1553,7 @@ sub ProcessFLIR($$;$)
                                  $$et{INDENT}, $i, $recType, $recPos, $recLen;
 
         # skip RawData records for embedded documents
-        if ($recType == 1 and $$et{DOC_NUM}) {
+        if ($recType == 1 and $$et{DOC_NUM} and $et->Options('ExtractEmbedded') < 2) {
             $raf->Seek($base+$recPos+$recLen) or $success = 0, last;
             next;
         }
@@ -1619,7 +1633,7 @@ Systems Inc. thermal image files (FFF, FPF and JPEG format).
 
 =head1 AUTHOR
 
-Copyright 2003-2021, Phil Harvey (philharvey66 at gmail.com)
+Copyright 2003-2023, Phil Harvey (philharvey66 at gmail.com)
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

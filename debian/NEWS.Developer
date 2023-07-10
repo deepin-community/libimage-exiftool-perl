@@ -1,6 +1,33 @@
+libimage-exiftool-perl (12.63+dfsg-1) unstable; urgency=medium
+
+  From upstream Changes for 12.63:
+    - API Changes:
+        - Added ImageHashType option
+
+  From upstream Changes for 12.62:
+    - API Changes:
+        - Added NoWarning option
+
+  From upstream Changes for 12.59:
+    - COMPATIBILITY WARNING: Changed the calculated ImageDataMD5 for JPEG
+      images to include all data from the SOS to the EOI (including the SOS
+      marker but not the EOI marker)
+    - API Changes:
+        - Added SetAlternateFile method
+
+ -- gregor herrmann <gregoa@debian.org>  Sun, 11 Jun 2023 23:27:15 +0200
+
+libimage-exiftool-perl (12.43+dfsg-1) unstable; urgency=medium
+
+  From upstream Changes for 12:43:
+  - API Changes:
+      - Added IgnoreTags option
+
+ -- gregor herrmann <gregoa@debian.org>  Sun, 10 Jul 2022 16:05:45 +0200
+
 libimage-exiftool-perl (12.34+dfsg-1) unstable; urgency=medium
 
-  From upstream Changes for 12.34:  
+  From upstream Changes for 12.34:
   - API Changes:
       - Added QuickTimePad option
 
