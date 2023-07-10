@@ -23,6 +23,7 @@ config_files/cuepointlist.config
 config_files/depthmap.config
 config_files/example.config
 config_files/fotoware.config
+config_files/frameCount.config
 config_files/gps2utm.config
 config_files/nksc.config
 config_files/photoshop_paths.config
@@ -84,10 +85,12 @@ html/TagNames/H264.html
 html/TagNames/HP.html
 html/TagNames/HTML.html
 html/TagNames/ICC_Profile.html
+html/TagNames/ICO.html
 html/TagNames/ID3.html
 html/TagNames/IPTC.html
 html/TagNames/ISO.html
 html/TagNames/ITC.html
+html/TagNames/InfiRay.html
 html/TagNames/JFIF.html
 html/TagNames/JPEG.html
 html/TagNames/JSON.html
@@ -102,6 +105,7 @@ html/TagNames/Lytro.html
 html/TagNames/M2TS.html
 html/TagNames/MIE.html
 html/TagNames/MIFF.html
+html/TagNames/MISB.html
 html/TagNames/MNG.html
 html/TagNames/MOI.html
 html/TagNames/MPC.html
@@ -172,6 +176,7 @@ html/TagNames/Torrent.html
 html/TagNames/Unknown.html
 html/TagNames/VCard.html
 html/TagNames/Vorbis.html
+html/TagNames/WPG.html
 html/TagNames/WTV.html
 html/TagNames/XMP.html
 html/TagNames/ZIP.html
@@ -194,6 +199,7 @@ html/idiosyncracies.html
 html/index.html
 html/install.html
 html/metafiles.html
+html/mistakes.html
 html/overview.png
 html/standards.html
 html/struct.html
@@ -205,6 +211,7 @@ lib/File/RandomAccess.pm
 lib/File/RandomAccess.pod
 lib/Image/ExifTool.pm
 lib/Image/ExifTool.pod
+lib/Image/ExifTool/7Z.pm
 lib/Image/ExifTool/AES.pm
 lib/Image/ExifTool/AFCP.pm
 lib/Image/ExifTool/AIFF.pm
@@ -290,12 +297,14 @@ lib/Image/ExifTool/HP.pm
 lib/Image/ExifTool/HTML.pm
 lib/Image/ExifTool/HtmlDump.pm
 lib/Image/ExifTool/ICC_Profile.pm
+lib/Image/ExifTool/ICO.pm
 lib/Image/ExifTool/ID3.pm
 lib/Image/ExifTool/IPTC.pm
 lib/Image/ExifTool/ISO.pm
 lib/Image/ExifTool/ITC.pm
 lib/Image/ExifTool/Import.pm
 lib/Image/ExifTool/InDesign.pm
+lib/Image/ExifTool/InfiRay.pm
 lib/Image/ExifTool/JPEG.pm
 lib/Image/ExifTool/JPEGDigest.pm
 lib/Image/ExifTool/JSON.pm
@@ -318,6 +327,7 @@ lib/Image/ExifTool/Lang/ko.pm
 lib/Image/ExifTool/Lang/nl.pm
 lib/Image/ExifTool/Lang/pl.pm
 lib/Image/ExifTool/Lang/ru.pm
+lib/Image/ExifTool/Lang/sk.pm
 lib/Image/ExifTool/Lang/sv.pm
 lib/Image/ExifTool/Lang/tr.pm
 lib/Image/ExifTool/Lang/zh_cn.pm
@@ -328,6 +338,7 @@ lib/Image/ExifTool/M2TS.pm
 lib/Image/ExifTool/MIE.pm
 lib/Image/ExifTool/MIEUnits.pod
 lib/Image/ExifTool/MIFF.pm
+lib/Image/ExifTool/MISB.pm
 lib/Image/ExifTool/MNG.pm
 lib/Image/ExifTool/MOI.pm
 lib/Image/ExifTool/MPC.pm
@@ -407,6 +418,7 @@ lib/Image/ExifTool/Unknown.pm
 lib/Image/ExifTool/VCard.pm
 lib/Image/ExifTool/Validate.pm
 lib/Image/ExifTool/Vorbis.pm
+lib/Image/ExifTool/WPG.pm
 lib/Image/ExifTool/WTV.pm
 lib/Image/ExifTool/WriteCanonRaw.pl
 lib/Image/ExifTool/WriteExif.pl
@@ -416,6 +428,7 @@ lib/Image/ExifTool/WritePNG.pl
 lib/Image/ExifTool/WritePhotoshop.pl
 lib/Image/ExifTool/WritePostScript.pl
 lib/Image/ExifTool/WriteQuickTime.pl
+lib/Image/ExifTool/WriteRIFF.pl
 lib/Image/ExifTool/WriteXMP.pl
 lib/Image/ExifTool/Writer.pl
 lib/Image/ExifTool/XMP.pm
@@ -520,6 +533,9 @@ t/ExifTool_3.out
 t/ExifTool_30.out
 t/ExifTool_31.out
 t/ExifTool_32.out
+t/ExifTool_33.out
+t/ExifTool_34.out
+t/ExifTool_35.out
 t/ExifTool_4.out
 t/ExifTool_5.out
 t/ExifTool_6.out
@@ -591,6 +607,8 @@ t/GoPro.t
 t/GoPro_2.out
 t/HTML.t
 t/HTML_2.out
+t/ICO.t
+t/ICO_2.out
 t/IPTC.t
 t/IPTC_2.out
 t/IPTC_4.out
@@ -606,6 +624,8 @@ t/InDesign.t
 t/InDesign_2.out
 t/InDesign_3.out
 t/InDesign_4.out
+t/InfiRay.t
+t/InfiRay_2.out
 t/JSON.t
 t/JSON_2.out
 t/JVC.t
@@ -637,6 +657,7 @@ t/Lang_15.out
 t/Lang_16.out
 t/Lang_17.out
 t/Lang_18.out
+t/Lang_19.out
 t/Lang_2.out
 t/Lang_3.out
 t/Lang_4.out
@@ -739,6 +760,7 @@ t/PNG_3.out
 t/PNG_4.out
 t/PNG_5.out
 t/PNG_6.out
+t/PNG_7.out
 t/PPM.t
 t/PPM_2.out
 t/PPM_3.out
@@ -790,6 +812,9 @@ t/RIFF.t
 t/RIFF_2.out
 t/RIFF_3.out
 t/RIFF_4.out
+t/RIFF_5.out
+t/RIFF_6.out
+t/RIFF_7.out
 t/RTF.t
 t/RTF_2.out
 t/Radiance.t
@@ -834,6 +859,8 @@ t/VCard_2.out
 t/VCard_3.out
 t/Vorbis.t
 t/Vorbis_2.out
+t/WPG.t
+t/WPG_2.out
 t/WTV.t
 t/WTV_2.out
 t/Writer.t
@@ -884,6 +911,7 @@ t/Writer_56.out
 t/Writer_58.out
 t/Writer_59.out
 t/Writer_6.out
+t/Writer_60.out
 t/Writer_7.out
 t/Writer_9.out
 t/XMP.t
@@ -942,6 +970,7 @@ t/ZIP_4.out
 t/ZIP_5.out
 t/ZIP_6.out
 t/ZIP_7.out
+t/ZIP_8.out
 t/ZISRAW.t
 t/ZISRAW_2.out
 t/images/AFCP.jpg
@@ -1014,10 +1043,12 @@ t/images/Geotag_DJI_2020-12-02_[07-50-31].csv
 t/images/GoPro.jpg
 t/images/HTML.html
 t/images/ICC_Profile.icc
+t/images/ICO.ico
 t/images/IPTC.jpg
 t/images/ISO.iso
 t/images/ITC.itc
 t/images/InDesign.indd
+t/images/InfiRay.jpg
 t/images/JSON.json
 t/images/JVC.jpg
 t/images/JVC2.jpg
@@ -1107,6 +1138,7 @@ t/images/Unknown.jpg
 t/images/VCard.ics
 t/images/VCard.vcf
 t/images/Vorbis.ogg
+t/images/WPG.wpg
 t/images/WTV.wtv
 t/images/Writer.jpg
 t/images/XMP.inx
@@ -1123,6 +1155,7 @@ t/images/XMP7.xmp
 t/images/XMP8.xmp
 t/images/XMP9.xmp
 t/images/ZIP.gz
+t/images/ZIP.rar
 t/images/ZIP.zip
 t/images/ZISRAW.czi
 t/images/iWork.numbers

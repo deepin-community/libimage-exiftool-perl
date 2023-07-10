@@ -357,7 +357,7 @@ manual mode)</span>
   <br>&#39;W&#39; = West</span></td></tr>
 <tr class=b>
 <td>GPSLatitude</td>
-<td class=c>no</td>
+<td class=c title=' / = Avoid'>yes/</td>
 <td class=n>GPS:GPSLatitude
   <br>GPS:GPSLatitudeRef</td>
 <td>&nbsp;</td></tr>
@@ -385,7 +385,7 @@ manual mode)</span>
   <br>&#39;S&#39; = South</span></td></tr>
 <tr>
 <td>GPSLongitude</td>
-<td class=c>no</td>
+<td class=c title=' / = Avoid'>yes/</td>
 <td class=n>GPS:GPSLongitude
   <br>GPS:GPSLongitudeRef</td>
 <td>&nbsp;</td></tr>
@@ -413,10 +413,12 @@ manual mode)</span>
   <br>&#39;W&#39; = West</span></td></tr>
 <tr class=b>
 <td>GPSPosition</td>
-<td class=c>no</td>
+<td class=c title=' ! = Unsafe'>yes!</td>
 <td class=n>GPSLatitude
   <br>GPSLongitude</td>
-<td>&nbsp;</td></tr>
+<td><span class=s><span class=n>(when written, writes GPSLatitude, GPSLatitudeRef, GPSLongitude and
+GPSLongitudeRef.  This tag may be written using the same coordinate
+format as provided by Google Maps when right-clicking on a location)</span></span></td></tr>
 <tr>
 <td>HyperfocalDistance</td>
 <td class=c>no</td>
@@ -589,7 +591,9 @@ option may be used to extract information from these embedded images.)</span></s
 <td>OtherImage</td>
 <td class=c>yes</td>
 <td class=n>OtherImageStart
-  <br>OtherImageLength</td>
+  <br>OtherImageLength
+  <br>OtherImageStart (1)
+  <br>OtherImageLength (1)</td>
 <td><span class=s><span class=n>(this tag is writable, and may be used to update existing embedded images,
 but not create or delete them)</span></span></td></tr>
 <tr class=b>
@@ -822,7 +826,7 @@ those of the originating tags)</span></span></td></tr>
 
 <hr>
 (This document generated automatically by Image::ExifTool::BuildTagLookup)
-<br><i>Last revised Sep 22, 2021</i>
+<br><i>Last revised Feb 9, 2023</i>
 <p class=lf><a href='index.html'>&lt;-- ExifTool Tag Names</a></p>
 </body>
 </html>

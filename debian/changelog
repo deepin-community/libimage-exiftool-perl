@@ -1,3 +1,161 @@
+libimage-exiftool-perl (12.63+dfsg-2) unstable; urgency=medium
+
+  * Add libio-compress-brotli-perl to Build-Depends-Indep and Recommends
+    (and update long description).
+
+ -- gregor herrmann <gregoa@debian.org>  Fri, 16 Jun 2023 00:14:02 +0200
+
+libimage-exiftool-perl (12.63+dfsg-1) unstable; urgency=medium
+
+  * Import upstream version 12.58+dfsg.
+  * Import upstream version 12.60+dfsg.
+  * Import upstream version 12.63+dfsg.
+  * Update package description from upstream README.
+  * Add libcompress-raw-lzma-perl to Build-Depends-Indep and Recommends
+    and explain it in the long description.
+  * Mention API changes in debian/NEWS.Developer.
+
+ -- gregor herrmann <gregoa@debian.org>  Sun, 11 Jun 2023 23:30:19 +0200
+
+libimage-exiftool-perl (12.57+dfsg-1) unstable; urgency=medium
+
+  * Import upstream version 12.57+dfsg.
+
+ -- gregor herrmann <gregoa@debian.org>  Fri, 24 Feb 2023 04:21:41 +0100
+
+libimage-exiftool-perl (12.56+dfsg-1) unstable; urgency=medium
+
+  * Import upstream version 12.56+dfsg.
+  * debian/copyright: add information about new third-party file.
+
+ -- gregor herrmann <gregoa@debian.org>  Sun, 12 Feb 2023 17:36:01 +0100
+
+libimage-exiftool-perl (12.55+dfsg-1) unstable; urgency=medium
+
+  * Import upstream version 12.55+dfsg.
+
+ -- gregor herrmann <gregoa@debian.org>  Mon, 23 Jan 2023 19:21:27 +0100
+
+libimage-exiftool-perl (12.54+dfsg-1) unstable; urgency=medium
+
+  * Import upstream version 12.54+dfsg.
+
+ -- gregor herrmann <gregoa@debian.org>  Sat, 07 Jan 2023 20:41:41 +0100
+
+libimage-exiftool-perl (12.53+dfsg-1) unstable; urgency=medium
+
+  * Import upstream version 12.53+dfsg.
+  * Update years of upstream and packaging copyright.
+  * Declare compliance with Debian Policy 4.6.2.
+
+ -- gregor herrmann <gregoa@debian.org>  Fri, 06 Jan 2023 17:58:06 +0100
+
+libimage-exiftool-perl (12.52+dfsg-1) unstable; urgency=medium
+
+  * Import upstream version 12.52+dfsg.
+
+ -- gregor herrmann <gregoa@debian.org>  Thu, 08 Dec 2022 22:18:01 +0100
+
+libimage-exiftool-perl (12.51+dfsg-1) unstable; urgency=medium
+
+  * Import upstream version 12.51+dfsg.
+    Fixes bug "exiftool ignores GPSLongitudeRef option":
+    - fixed issue where GPS reference directions may be unknowingly written,
+      cf. /usr/share/doc/libimage-exiftool-perl/changelog.gz
+    - improved documentation about writing GPS coordinates,
+      cf. /usr/share/doc/libimage-exiftool-perl/html/faq.html
+    Closes: #1023889
+
+ -- gregor herrmann <gregoa@debian.org>  Tue, 22 Nov 2022 18:14:42 +0100
+
+libimage-exiftool-perl (12.50+dfsg-1) unstable; urgency=medium
+
+  * Import upstream version 12.50+dfsg.
+
+ -- gregor herrmann <gregoa@debian.org>  Mon, 21 Nov 2022 18:24:12 +0100
+
+libimage-exiftool-perl (12.49+dfsg-1) unstable; urgency=medium
+
+  * Import upstream version 12.49+dfsg.
+
+ -- gregor herrmann <gregoa@debian.org>  Sun, 30 Oct 2022 02:07:00 +0200
+
+libimage-exiftool-perl (12.48+dfsg-1) unstable; urgency=medium
+
+  * Import upstream version 12.48+dfsg.
+
+ -- gregor herrmann <gregoa@debian.org>  Sun, 16 Oct 2022 17:48:09 +0200
+
+libimage-exiftool-perl (12.47+dfsg-1) unstable; urgency=medium
+
+  * Import upstream version 12.47+dfsg.
+
+ -- gregor herrmann <gregoa@debian.org>  Tue, 04 Oct 2022 20:12:19 +0200
+
+libimage-exiftool-perl (12.45+dfsg-1) unstable; urgency=medium
+
+  * Import upstream version 12.45+dfsg.
+
+ -- gregor herrmann <gregoa@debian.org>  Sat, 17 Sep 2022 17:32:25 +0200
+
+libimage-exiftool-perl (12.44+dfsg-1) unstable; urgency=medium
+
+  * Import upstream version 12.44+dfsg.
+
+ -- gregor herrmann <gregoa@debian.org>  Sat, 23 Jul 2022 14:43:57 +0200
+
+libimage-exiftool-perl (12.43+dfsg-1) unstable; urgency=medium
+
+  * Import upstream version 12.43+dfsg.
+  * Add a note about API changes to debian/NEWS.Developer.
+  * Refresh lintian overrides.
+
+ -- gregor herrmann <gregoa@debian.org>  Sun, 10 Jul 2022 16:14:30 +0200
+
+libimage-exiftool-perl (12.42+dfsg-1) unstable; urgency=medium
+
+  * Import upstream version 12.42+dfsg.
+  * Declare compliance with Debian Policy 4.6.1.
+
+ -- gregor herrmann <gregoa@debian.org>  Sat, 04 Jun 2022 15:22:13 +0200
+
+libimage-exiftool-perl (12.41+dfsg-1) unstable; urgency=medium
+
+  * Import upstream version 12.41+dfsg.
+
+ -- gregor herrmann <gregoa@debian.org>  Sat, 09 Apr 2022 05:03:05 +0200
+
+libimage-exiftool-perl (12.40+dfsg-1) unstable; urgency=medium
+
+  * Import upstream version 12.40+dfsg.
+
+ -- gregor herrmann <gregoa@debian.org>  Sat, 12 Feb 2022 18:53:54 +0100
+
+libimage-exiftool-perl (12.39+dfsg-1) unstable; urgency=medium
+
+  * Import upstream version 12.39+dfsg.
+  * Update years of upstream and packaging copyright.
+
+ -- gregor herrmann <gregoa@debian.org>  Mon, 17 Jan 2022 20:42:07 +0100
+
+libimage-exiftool-perl (12.38+dfsg-1) unstable; urgency=medium
+
+  * Import upstream version 12.38+dfsg.
+
+ -- gregor herrmann <gregoa@debian.org>  Thu, 23 Dec 2021 21:34:19 +0100
+
+libimage-exiftool-perl (12.37+dfsg-1) unstable; urgency=medium
+
+  * Import upstream version 12.37+dfsg.
+
+ -- gregor herrmann <gregoa@debian.org>  Sat, 11 Dec 2021 00:24:51 +0100
+
+libimage-exiftool-perl (12.36+dfsg-1) unstable; urgency=medium
+
+  * Import upstream version 12.36+dfsg.
+
+ -- gregor herrmann <gregoa@debian.org>  Sat, 20 Nov 2021 17:26:44 +0100
+
 libimage-exiftool-perl (12.35+dfsg-1) unstable; urgency=medium
 
   * Import upstream version 12.35+dfsg.
